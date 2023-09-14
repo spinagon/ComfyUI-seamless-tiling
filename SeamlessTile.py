@@ -1,3 +1,5 @@
+import copy
+
 import torch
 
 
@@ -8,6 +10,7 @@ class SeamlessTile:
             "required": {
                 "model": ("MODEL",),
                 "tiling": (["enable", "disable"],),
+                "copy_model": (["Modify in place", "Make a copy"],),
             },
         }
 
@@ -16,14 +19,26 @@ class SeamlessTile:
     RETURN_TYPES = ("MODEL",)
     FUNCTION = "run"
 
-    def run(self, model, tiling):
-        for m in model.model.modules():
-            if isinstance(m, torch.nn.Conv2d):
-                if tiling == "enable":
-                    m.padding_mode = "circular"
-                else:
-                    m.padding_mode = "zeros"
-        return (model,)
+    def run(self, model, copy_model, tiling):
+        if copy_model == "Modify in place":
+            model_copy = model
+        else:
+            model_copy = copy.deepcopy(model)
+        if tiling == "enable":
+            model_copy.model.apply(make_circular)
+        else:
+            model_copy.model.apply(unmake_circular)
+        return (model_copy,)
+
+
+def make_circular(m):
+    if isinstance(m, torch.nn.Conv2d):
+        m.padding_mode = "circular"
+
+
+def unmake_circular(m):
+    if isinstance(m, torch.nn.Conv2d):
+        m.padding_mode = "zeros"
 
 
 class CircularVAEDecode:
@@ -51,3 +66,31 @@ class CircularVAEDecode:
         ]:
             layer.padding_mode = "zeros"
         return result
+
+
+class MakeCircularVAE:
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "vae": ("VAE",),
+                "tiling": (["enable", "disable"],),
+                "copy_vae": (["Modify in place", "Make a copy"],),
+            }
+        }
+
+    RETURN_TYPES = ("VAE",)
+    FUNCTION = "run"
+
+    CATEGORY = "latent"
+
+    def run(self, vae, tiling, copy_vae):
+        if copy_vae == "Modify in place":
+            vae_copy = vae
+        else:
+            vae_copy = copy.deepcopy(vae)
+        if tiling == "enable":
+            vae_copy.first_stage_model.apply(make_circular)
+        else:
+            vae_copy.first_stage_model.apply(unmake_circular)
+        return (vae_copy,)
