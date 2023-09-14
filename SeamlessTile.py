@@ -1,5 +1,5 @@
 import copy
-
+import PIL
 import torch
 
 
@@ -81,7 +81,6 @@ class MakeCircularVAE:
 
     RETURN_TYPES = ("VAE",)
     FUNCTION = "run"
-
     CATEGORY = "latent"
 
     def run(self, vae, tiling, copy_vae):
@@ -94,3 +93,26 @@ class MakeCircularVAE:
         else:
             vae_copy.first_stage_model.apply(unmake_circular)
         return (vae_copy,)
+
+class OffsetImage:
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "pixels": ("IMAGE",),
+                "x_percent": ("FLOAT", {"default": 50.0, "min": 0.0, "max": 100.0, "step": 1}),
+                "y_percent": ("FLOAT", {"default": 50.0, "min": 0.0, "max": 100.0, "step": 1}),
+            }
+        }
+
+    RETURN_TYPES = ("IMAGE",)
+    FUNCTION = "run"
+    CATEGORY = "image"
+
+    def run(self, pixels, x_percent, y_percent):
+        print(pixels.size())
+        n, y, x, c = pixels.size()
+        y = round(y * y_percent / 100)
+        x = round(x * x_percent / 100)
+        return (pixels.roll((y, x), (1, 2)),)
+        
