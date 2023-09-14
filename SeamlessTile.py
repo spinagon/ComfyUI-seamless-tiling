@@ -17,7 +17,7 @@ class SeamlessTile:
     FUNCTION = "run"
 
     def run(self, model, tiling):
-        for m in model.model.modules:
+        for m in model.model.modules():
             if isinstance(m, torch.nn.Conv2d):
                 if tiling == "enable":
                     m.padding_mode = "circular"
