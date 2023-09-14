@@ -49,5 +49,5 @@ class CircularVAEDecode:
             for layer in vae.first_stage_model.modules()
             if isinstance(layer, torch.nn.Conv2d)
         ]:
-            layer.padding_mode = "circular"
+            layer.padding_mode = "zeros"
         return result
