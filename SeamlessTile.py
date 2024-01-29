@@ -1,4 +1,5 @@
 import copy
+from typing import Optional
 
 import PIL
 import torch
@@ -6,7 +7,6 @@ from torch import Tensor
 from torch.nn import Conv2d
 from torch.nn import functional as F
 from torch.nn.modules.utils import _pair
-from typing import Optional
 
 
 class SeamlessTile:
@@ -42,11 +42,6 @@ class SeamlessTile:
         return (model_copy,)
 
 
-def make_circular(m):
-    if isinstance(m, torch.nn.Conv2d):
-        m.padding_mode = "circular"
-
-
 # asymmetric tiling from https://github.com/tjm35/asymmetric-tiling-sd-webui/blob/main/scripts/asymmetric_tiling.py
 def make_circular_asymm(model, tileX: bool, tileY: bool):
     for layer in [
@@ -64,11 +59,6 @@ def __replacementConv2DConvForward(self, input: Tensor, weight: Tensor, bias: Op
     working = F.pad(input, self.paddingX, mode=self.padding_modeX)
     working = F.pad(working, self.paddingY, mode=self.padding_modeY)
     return F.conv2d(working, weight, bias, self.stride, _pair(0), self.dilation, self.groups)
-
-
-def unmake_circular(m):
-    if isinstance(m, torch.nn.Conv2d):
-        m.padding_mode = "zeros"
 
 
 class CircularVAEDecode:
@@ -158,7 +148,6 @@ class OffsetImage:
     CATEGORY = "image"
 
     def run(self, pixels, x_percent, y_percent):
-        print(pixels.size())
         n, y, x, c = pixels.size()
         y = round(y * y_percent / 100)
         x = round(x * x_percent / 100)
