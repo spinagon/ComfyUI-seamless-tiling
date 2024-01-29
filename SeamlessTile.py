@@ -71,39 +71,35 @@ def unmake_circular(m):
         m.padding_mode = "zeros"
 
 
-def unmake_circular_asymm(model):
-    for layer in [
-        layer for layer in model.modules() if isinstance(layer, torch.nn.Conv2d)
-    ]:
-        layer.padding_mode = "zeros"
-        layer._conv_forward = Conv2d._conv_forward.__get__(layer, Conv2d)
-    return model
-
-
 class CircularVAEDecode:
     @classmethod
     def INPUT_TYPES(s):
-        return {"required": {"samples": ("LATENT",), "vae": ("VAE",)}}
+        return {
+            "required": {
+                "samples": ("LATENT",),
+                "vae": ("VAE",),
+                "tiling": (["enable", "x_only", "y_only", "disable"],)
+            }
+        }
 
     RETURN_TYPES = ("IMAGE",)
     FUNCTION = "decode"
 
     CATEGORY = "latent"
 
-    def decode(self, vae, samples):
-        for layer in [
-            layer
-            for layer in vae.first_stage_model.modules()
-            if isinstance(layer, torch.nn.Conv2d)
-        ]:
-            layer.padding_mode = "circular"
-        result = (vae.decode(samples["samples"]),)
-        for layer in [
-            layer
-            for layer in vae.first_stage_model.modules()
-            if isinstance(layer, torch.nn.Conv2d)
-        ]:
-            layer.padding_mode = "zeros"
+    def decode(self, samples, vae, tiling):
+        vae_copy = copy.deepcopy(vae)
+        
+        if tiling == "enable":
+            make_circular_asymm(vae_copy.first_stage_model, True, True)
+        elif tiling == "x_only":
+            make_circular_asymm(vae_copy.first_stage_model, True, False)
+        elif tiling == "y_only":
+            make_circular_asymm(vae_copy.first_stage_model, False, True)
+        else:
+            make_circular_asymm(vae_copy.first_stage_model, False, False)
+        
+        result = (vae_copy.decode(samples["samples"]),)
         return result
 
 
@@ -113,8 +109,8 @@ class MakeCircularVAE:
         return {
             "required": {
                 "vae": ("VAE",),
-                "tiling": (["enable", "disable"],),
-                "copy_vae": (["Modify in place", "Make a copy"],),
+                "tiling": (["enable", "x_only", "y_only", "disable"],),
+                "copy_vae": (["Make a copy", "Modify in place"],),
             }
         }
 
@@ -127,10 +123,16 @@ class MakeCircularVAE:
             vae_copy = vae
         else:
             vae_copy = copy.deepcopy(vae)
+        
         if tiling == "enable":
-            vae_copy.first_stage_model.apply(make_circular)
+            make_circular_asymm(vae_copy.first_stage_model, True, True)
+        elif tiling == "x_only":
+            make_circular_asymm(vae_copy.first_stage_model, True, False)
+        elif tiling == "y_only":
+            make_circular_asymm(vae_copy.first_stage_model, False, True)
         else:
-            vae_copy.first_stage_model.apply(unmake_circular)
+            make_circular_asymm(vae_copy.first_stage_model, False, False)
+        
         return (vae_copy,)
 
 
