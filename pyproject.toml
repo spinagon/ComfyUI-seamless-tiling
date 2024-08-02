@@ -2,7 +2,7 @@
 name = "comfyui-seamless-tiling"
 description = "Node for generating seamless textures, based on similar setting from A1111."
 version = "1.0.0"
-license = "LICENSE"
+license = { file = "LICENSE" }
 
 [project.urls]
 Repository = "https://github.com/spinagon/ComfyUI-seamless-tiling"
