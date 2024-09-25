@@ -1,6 +1,7 @@
 # ComfyUI-seamless-tiling
 
-![tile](https://github.com/spacepxl/ComfyUI-seamless-tiling/assets/143970342/2cc548d6-b29e-4e7e-ac89-081498b47fe6)
+Example workflow:
+![tile](tiled_workflow.png)
 
 ComfyUI nodes for generating seamless textures. Replicates "Tiling" option from A1111, including independent X/Y tiling.
 
