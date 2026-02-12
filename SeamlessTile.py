@@ -29,8 +29,8 @@ class SeamlessTile:
         if copy_model == "Modify in place":
             model_copy = model
         else:
-            model_copy = copy.deepcopy(model)
-            
+            model_copy = model.clone()
+
         if tiling == "enable":
             make_circular_asymm(model_copy.model, True, True)
         elif tiling == "x_only":
@@ -47,18 +47,32 @@ def make_circular_asymm(model, tileX: bool, tileY: bool):
     for layer in [
         layer for layer in model.modules() if isinstance(layer, torch.nn.Conv2d)
     ]:
-        layer.padding_modeX = 'circular' if tileX else 'constant'
-        layer.padding_modeY = 'circular' if tileY else 'constant'
-        layer.paddingX = (layer._reversed_padding_repeated_twice[0], layer._reversed_padding_repeated_twice[1], 0, 0)
-        layer.paddingY = (0, 0, layer._reversed_padding_repeated_twice[2], layer._reversed_padding_repeated_twice[3])
+        layer.padding_modeX = "circular" if tileX else "constant"
+        layer.padding_modeY = "circular" if tileY else "constant"
+        layer.paddingX = (
+            layer._reversed_padding_repeated_twice[0],
+            layer._reversed_padding_repeated_twice[1],
+            0,
+            0,
+        )
+        layer.paddingY = (
+            0,
+            0,
+            layer._reversed_padding_repeated_twice[2],
+            layer._reversed_padding_repeated_twice[3],
+        )
         layer._conv_forward = __replacementConv2DConvForward.__get__(layer, Conv2d)
     return model
 
 
-def __replacementConv2DConvForward(self, input: Tensor, weight: Tensor, bias: Optional[Tensor]):
+def __replacementConv2DConvForward(
+    self, input: Tensor, weight: Tensor, bias: Optional[Tensor]
+):
     working = F.pad(input, self.paddingX, mode=self.padding_modeX)
     working = F.pad(working, self.paddingY, mode=self.padding_modeY)
-    return F.conv2d(working, weight, bias, self.stride, _pair(0), self.dilation, self.groups)
+    return F.conv2d(
+        working, weight, bias, self.stride, _pair(0), self.dilation, self.groups
+    )
 
 
 class CircularVAEDecode:
@@ -68,7 +82,7 @@ class CircularVAEDecode:
             "required": {
                 "samples": ("LATENT",),
                 "vae": ("VAE",),
-                "tiling": (["enable", "x_only", "y_only", "disable"],)
+                "tiling": (["enable", "x_only", "y_only", "disable"],),
             }
         }
 
@@ -79,7 +93,7 @@ class CircularVAEDecode:
 
     def decode(self, samples, vae, tiling):
         vae_copy = copy.deepcopy(vae)
-        
+
         if tiling == "enable":
             make_circular_asymm(vae_copy.first_stage_model, True, True)
         elif tiling == "x_only":
@@ -88,7 +102,7 @@ class CircularVAEDecode:
             make_circular_asymm(vae_copy.first_stage_model, False, True)
         else:
             make_circular_asymm(vae_copy.first_stage_model, False, False)
-        
+
         result = (vae_copy.decode(samples["samples"]),)
         return result
 
@@ -113,7 +127,7 @@ class MakeCircularVAE:
             vae_copy = vae
         else:
             vae_copy = copy.deepcopy(vae)
-        
+
         if tiling == "enable":
             make_circular_asymm(vae_copy.first_stage_model, True, True)
         elif tiling == "x_only":
@@ -122,7 +136,7 @@ class MakeCircularVAE:
             make_circular_asymm(vae_copy.first_stage_model, False, True)
         else:
             make_circular_asymm(vae_copy.first_stage_model, False, False)
-        
+
         return (vae_copy,)
 
 

@@ -1,5 +1,4 @@
-from .SeamlessTile import (CircularVAEDecode, MakeCircularVAE, OffsetImage,
-                           SeamlessTile)
+from .SeamlessTile import CircularVAEDecode, MakeCircularVAE, OffsetImage, SeamlessTile
 
 NODE_CLASS_MAPPINGS = {
     "SeamlessTile": SeamlessTile,
