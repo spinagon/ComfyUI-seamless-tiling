@@ -30,7 +30,7 @@ class SeamlessTile:
             model_copy = model
         else:
             model_copy = model.clone()
-
+            
         if tiling == "enable":
             make_circular_asymm(model_copy.model, True, True)
         elif tiling == "x_only":
@@ -47,32 +47,18 @@ def make_circular_asymm(model, tileX: bool, tileY: bool):
     for layer in [
         layer for layer in model.modules() if isinstance(layer, torch.nn.Conv2d)
     ]:
-        layer.padding_modeX = "circular" if tileX else "constant"
-        layer.padding_modeY = "circular" if tileY else "constant"
-        layer.paddingX = (
-            layer._reversed_padding_repeated_twice[0],
-            layer._reversed_padding_repeated_twice[1],
-            0,
-            0,
-        )
-        layer.paddingY = (
-            0,
-            0,
-            layer._reversed_padding_repeated_twice[2],
-            layer._reversed_padding_repeated_twice[3],
-        )
+        layer.padding_modeX = 'circular' if tileX else 'constant'
+        layer.padding_modeY = 'circular' if tileY else 'constant'
+        layer.paddingX = (layer._reversed_padding_repeated_twice[0], layer._reversed_padding_repeated_twice[1], 0, 0)
+        layer.paddingY = (0, 0, layer._reversed_padding_repeated_twice[2], layer._reversed_padding_repeated_twice[3])
         layer._conv_forward = __replacementConv2DConvForward.__get__(layer, Conv2d)
     return model
 
 
-def __replacementConv2DConvForward(
-    self, input: Tensor, weight: Tensor, bias: Optional[Tensor]
-):
+def __replacementConv2DConvForward(self, input: Tensor, weight: Tensor, bias: Optional[Tensor]):
     working = F.pad(input, self.paddingX, mode=self.padding_modeX)
     working = F.pad(working, self.paddingY, mode=self.padding_modeY)
-    return F.conv2d(
-        working, weight, bias, self.stride, _pair(0), self.dilation, self.groups
-    )
+    return F.conv2d(working, weight, bias, self.stride, _pair(0), self.dilation, self.groups)
 
 
 class CircularVAEDecode:
@@ -82,7 +68,7 @@ class CircularVAEDecode:
             "required": {
                 "samples": ("LATENT",),
                 "vae": ("VAE",),
-                "tiling": (["enable", "x_only", "y_only", "disable"],),
+                "tiling": (["enable", "x_only", "y_only", "disable"],)
             }
         }
 
@@ -92,18 +78,22 @@ class CircularVAEDecode:
     CATEGORY = "latent"
 
     def decode(self, samples, vae, tiling):
-        vae_copy = copy.deepcopy(vae)
+        # Patch only the inner nn.Module to avoid deepcopy failures on CUDA hooks
+        original_fsm = vae.first_stage_model
+        vae.first_stage_model = copy.deepcopy(original_fsm)
 
         if tiling == "enable":
-            make_circular_asymm(vae_copy.first_stage_model, True, True)
+            make_circular_asymm(vae.first_stage_model, True, True)
         elif tiling == "x_only":
-            make_circular_asymm(vae_copy.first_stage_model, True, False)
+            make_circular_asymm(vae.first_stage_model, True, False)
         elif tiling == "y_only":
-            make_circular_asymm(vae_copy.first_stage_model, False, True)
+            make_circular_asymm(vae.first_stage_model, False, True)
         else:
-            make_circular_asymm(vae_copy.first_stage_model, False, False)
+            make_circular_asymm(vae.first_stage_model, False, False)
 
-        result = (vae_copy.decode(samples["samples"]),)
+        result = (vae.decode(samples["samples"]),)
+        # Restore original so we don't permanently modify the input VAE
+        vae.first_stage_model = original_fsm
         return result
 
 
@@ -126,8 +116,10 @@ class MakeCircularVAE:
         if copy_vae == "Modify in place":
             vae_copy = vae
         else:
-            vae_copy = copy.deepcopy(vae)
-
+            # Only deepcopy the inner nn.Module to avoid CUDA hook serialization failures
+            vae_copy = vae
+            vae_copy.first_stage_model = copy.deepcopy(vae.first_stage_model)
+        
         if tiling == "enable":
             make_circular_asymm(vae_copy.first_stage_model, True, True)
         elif tiling == "x_only":
@@ -136,7 +128,7 @@ class MakeCircularVAE:
             make_circular_asymm(vae_copy.first_stage_model, False, True)
         else:
             make_circular_asymm(vae_copy.first_stage_model, False, False)
-
+        
         return (vae_copy,)
 
 
